@@ -222,26 +222,28 @@ Requirements: Docker Compose v2.24+ and persistent disk space for the Tantivy in
 1. Copy `.env.example` to `.env`. Set strong, unique values for the encryption keys,
    JWT secret, and bootstrap administrator password. Generate each 32-byte key with:
 
-   ```sh
-   python -c "import base64, secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
-   ```
+    ```sh
+    python -c "import base64, secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+    ```
 
-   Generate this separately for `AES_256_MASTER_KEY_B64` and `BLIND_INDEX_KEY_B64`.
-   Set `JWT_SECRET` to at least 32 random bytes. Never use example credentials outside
-   a disposable local environment.
+    Generate this separately for `AES_256_MASTER_KEY_B64` and `BLIND_INDEX_KEY_B64`.
+    Set `JWT_SECRET` to at least 32 random bytes. Never use example credentials outside
+    a disposable local environment.
+
 2. Set `POSTGRES_PASSWORD` in `.env`. Compose uses it for PostgreSQL and PgBouncer
    and injects it into the API's database URLs. When running without Compose, put
    matching credentials in `DATABASE_URL` and `DIRECT_DATABASE_URL`.
 3. Start the stack:
 
-   ```sh
-   docker compose up --build
-   ```
+    ```sh
+    docker compose up --build
+    ```
 
-   Compose starts PostgreSQL, PgBouncer in transaction-pooling mode, a three-primary
-   Redis Cluster, and the API. The API applies migrations, seeds default RBAC data
-   and the bootstrap administrator, builds the on-disk index if empty, then starts
-   the outbox relay. Compose stores the Tantivy index in the `tantivy-data` volume.
+    Compose starts PostgreSQL, PgBouncer in transaction-pooling mode, a three-primary
+    Redis Cluster, and the API. The API applies migrations, seeds default RBAC data
+    and the bootstrap administrator, builds the on-disk index if empty, then starts
+    the outbox relay. Compose stores the Tantivy index in the `tantivy-data` volume.
+
 4. Open `http://localhost:8000/docs`; liveness endpoint: `http://localhost:8000/health`.
 
 The included Compose Redis setup is a local-development cluster without replicas or
@@ -297,21 +299,21 @@ authenticated identity and current permissions.
 
 Seeded roles:
 
-| Role | Permissions |
-|---|---|
+| Role          | Permissions                                                 |
+| ------------- | ----------------------------------------------------------- |
 | `super_admin` | `users:read`, `users:write`, `users:delete`, `roles:manage` |
-| `manager` | `users:read`, `users:write` |
-| `viewer` | `users:read` |
+| `manager`     | `users:read`, `users:write`                                 |
+| `viewer`      | `users:read`                                                |
 
 Endpoints:
 
-| Method | Path | Required permission |
-|---|---|---|
-| `GET` | `/api/v1/users` | `users:read` |
-| `GET` | `/api/v1/users/search?q=...` | `users:read` |
-| `POST` | `/api/v1/users` | `users:write` |
-| `PUT` | `/api/v1/users/{user_id}/roles` | `super_admin` and `roles:manage` |
-| `DELETE` | `/api/v1/users/{user_id}` | `users:delete` |
+| Method   | Path                            | Required permission              |
+| -------- | ------------------------------- | -------------------------------- |
+| `GET`    | `/api/v1/users`                 | `users:read`                     |
+| `GET`    | `/api/v1/users/search?q=...`    | `users:read`                     |
+| `POST`   | `/api/v1/users`                 | `users:write`                    |
+| `PUT`    | `/api/v1/users/{user_id}/roles` | `super_admin` and `roles:manage` |
+| `DELETE` | `/api/v1/users/{user_id}`       | `users:delete`                   |
 
 Non-admin callers may create users only with the default `viewer` role. Role
 assignment is restricted to the super administrator.
@@ -321,9 +323,9 @@ assignment is restricted to the super administrator.
 1. Add the SQLAlchemy model and import it from `app/models/__init__.py`.
 2. Generate and review a versioned migration:
 
-   ```sh
-   alembic revision --autogenerate -m "add_products"
-   ```
+    ```sh
+    alembic revision --autogenerate -m "add_products"
+    ```
 
 3. Commit the reviewed migration. Every application startup takes a PostgreSQL
    advisory lock on the direct connection and runs `alembic upgrade head`.
@@ -349,7 +351,7 @@ target column for the Tantivy-backed index.
 - Redis keys use `{user_id}` hash tags where a user's auth/session data must share a
   cluster slot. Token blocklists are read from the Redis primary; PostgreSQL remains
   authoritative for RBAC, and cache values never grant permissions. Redis is a
-  runtime service dependency; Tantivy runs in-process, and search/index errors are
+  runtime service dependency; Tantivy runs in-process, and search/index error are
   surfaced to API requests or retried by the outbox worker.
 - The `/health` endpoint is liveness-only. Configure infrastructure health probes
   and alerting for PostgreSQL, Redis, Tantivy index storage, and the outbox backlog.
