@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.23.1
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_USER: app
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 40
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis-1:
+    image: redis:7-alpine
+    command: ["redis-server", "--port", "6379", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--cluster-announce-hostname", "redis-1", "--cluster-preferred-endpoint-type", "hostname"]
+    volumes: ["redis-1-data:/data"]
+
+  redis-2:
+    image: redis:7-alpine
+    command: ["redis-server", "--port", "6379", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--cluster-announce-hostname", "redis-2", "--cluster-preferred-endpoint-type", "hostname"]
+    volumes: ["redis-2-data:/data"]
+
+  redis-3:
+    image: redis:7-alpine
+    command: ["redis-server", "--port", "6379", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--cluster-announce-hostname", "redis-3", "--cluster-preferred-endpoint-type", "hostname"]
+    volumes: ["redis-3-data:/data"]
+
+  redis-init:
+    image: redis:7-alpine
+    depends_on:
+      - redis-1
+      - redis-2
+      - redis-3
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        until redis-cli -h redis-1 ping >/dev/null 2>&1; do sleep 1; done
+        until redis-cli -h redis-2 ping >/dev/null 2>&1; do sleep 1; done
+        until redis-cli -h redis-3 ping >/dev/null 2>&1; do sleep 1; done
+        if ! redis-cli -h redis-1 cluster info | grep -q 'cluster_state:ok'; then
+          redis-cli --cluster create redis-1:6379 redis-2:6379 redis-3:6379 --cluster-replicas 0 --cluster-yes
+        fi
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:${POSTGRES_PASSWORD:-change-me}@pgbouncer:6432/app_db
+      DIRECT_DATABASE_URL: postgresql+asyncpg://app:${POSTGRES_PASSWORD:-change-me}@postgres:5432/app_db
+      SEARCH_INDEX_PATH: /data/tantivy
+    volumes: ["tantivy-data:/data/tantivy"]
+    ports: ["8000:8000"]
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  redis-1-data:
+  redis-2-data:
+  redis-3-data:
+  tantivy-data:
