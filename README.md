@@ -63,6 +63,13 @@ relay synchronizes search documents to the on-disk Tantivy index.
 │   │   ├── dependencies.py         # Current principal and auth/RBAC checks
 │   │   ├── session.py              # Async SQLAlchemy engine, session factory, DB dependency
 │   │   ├── config.py               # Environment-backed application settings
+│   │   ├── i18n/                   # Multi-language (i18n) engine & Swagger documentation
+│   │   │   ├── config.py           # Supported languages and locale negotiation
+│   │   │   ├── context.py          # Async ContextVar for request-scoped language
+│   │   │   ├── middleware.py       # Request language extractor & Content-Language header
+│   │   │   ├── translator.py       # Translation function t(...) with fallback
+│   │   │   ├── openapi.py          # Dynamic localized OpenAPI generator & Swagger UI switcher
+│   │   │   └── locales/            # Language catalogs (en.py, bn.py, extensible)
 │   │   ├── security/
 │   │   │   ├── aead.py             # AES-GCM encryption and blind indexes
 │   │   │   ├── jwt.py              # JWT creation and Redis key helpers
@@ -355,6 +362,25 @@ target column for the Tantivy-backed index.
   surfaced to API requests or retried by the outbox worker.
 - The `/health` endpoint is liveness-only. Configure infrastructure health probes
   and alerting for PostgreSQL, Redis, Tantivy index storage, and the outbox backlog.
+
+## Multi-language (i18n) & localized Swagger documentation
+
+The application provides first-class internationalization (`en` English and `bn` Bengali) across API endpoints, error responses, and Swagger/OpenAPI documentation:
+
+1. **Swagger UI language switcher**:
+   Visit `/docs` to access interactive Swagger documentation. A prominent top toolbar allows instant toggling between English (`🇬🇧 English`) and Bengali (`🇧🇩 বাংলা`).
+   - English docs: `/docs?lang=en` (loads `/openapi.json?lang=en`)
+   - Bengali docs: `/docs?lang=bn` (loads `/openapi.json?lang=bn`)
+   - All summaries, descriptions, tags, query/path parameters, and HTTP response codes (200, 201, 204, 400, 401, 403, 404, 409, 422) are translated.
+
+2. **API request language negotiation**:
+   Clients can request localized responses using either:
+   - Query parameter: `?lang=bn` (or `?locale=bn`)
+   - Header: `Accept-Language: bn-BD,bn;q=0.9,en;q=0.8`
+   Every response includes a `Content-Language` header reflecting the active locale.
+
+3. **Adding new languages**:
+   Adding support for a new language (e.g. `es`, `fr`, `ar`) requires only adding a dictionary in `app/core/i18n/locales/<code_name>.py` and registering it in `SUPPORTED_LANGUAGES`.
 
 ## Tests and lint
 
