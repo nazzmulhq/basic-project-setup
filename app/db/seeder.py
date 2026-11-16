@@ -80,7 +80,9 @@ async def run_initial_seed(db: AsyncSession, search_index: TantivyUserIndex) -> 
     await db.commit()
     if await search_index.is_empty():
         users = (
-            await db.execute(select(User).options(selectinload(User.roles)).order_by(User.id))
-        ).scalars().all()
+            (await db.execute(select(User).options(selectinload(User.roles)).order_by(User.id)))
+            .scalars()
+            .all()
+        )
         await search_index.rebuild([user_search_document(user) for user in users])
         logger.info("Rebuilt Tantivy user index with %d users", len(users))

@@ -188,6 +188,4 @@ def get_tantivy_user_index() -> TantivyUserIndex:
     return tantivy_user_index
 
 
-TantivyUserIndexDeps = Annotated[
-    TantivyUserIndex, Depends(get_tantivy_user_index)
-]
+TantivyUserIndexDeps = Annotated[TantivyUserIndex, Depends(get_tantivy_user_index)]
